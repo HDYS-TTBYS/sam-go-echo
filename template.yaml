@@ -12,6 +12,42 @@ Globals:
         MemorySize: 128
 
 Resources:
+    GoEchoCognitoUserPool:
+        Type: AWS::Cognito::UserPool
+        Properties:
+            UserPoolName: GoEchoCognitoUserPoolName
+            Policies:
+                PasswordPolicy:
+                    MinimumLength: 8
+            UsernameAttributes:
+                - email
+            Schema:
+                - AttributeDataType: String
+                  Name: email
+                  Required: false
+
+    GoEchoCognitoUserPoolClient:
+        Type: AWS::Cognito::UserPoolClient
+        Properties:
+            UserPoolId: !Ref GoEchoCognitoUserPool
+            ClientName: GoEchoCognitoUserPoolClientName
+            GenerateSecret: false
+            ExplicitAuthFlows: #認証フローの設定
+                - ALLOW_ADMIN_USER_PASSWORD_AUTH
+                - ALLOW_USER_PASSWORD_AUTH
+                - ALLOW_REFRESH_TOKEN_AUTH
+
+    GoEchoApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: Prod
+            Cors: "'*'"
+            Auth:
+                DefaultAuthorizer: GoEchoCognitoAuthorizer
+                Authorizers:
+                    GoEchoCognitoAuthorizer:
+                        UserPoolArn: !GetAtt GoEchoCognitoUserPool.Arn
+
     GoEchoFunction:
         Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
         Properties:
@@ -24,6 +60,7 @@ Resources:
                 CatchAll:
                     Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
                     Properties:
+                        RestApiId: !Ref GoEchoApi
                         Path: /{proxy+}
                         Method: ANY
             Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
@@ -36,7 +73,7 @@ Outputs:
     # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
     GoEchoAPI:
         Description: "API Gateway endpoint URL for Prod environment for First Function"
-        Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+        Value: !Sub "https://${GoEchoApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
     GoEchoFunction:
         Description: "First Lambda Function ARN"
         Value: !GetAtt GoEchoFunction.Arn

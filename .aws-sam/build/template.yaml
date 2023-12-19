@@ -10,6 +10,43 @@ Globals:
     Timeout: 5
     MemorySize: 128
 Resources:
+  GoEchoCognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: GoEchoCognitoUserPoolName
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      UsernameAttributes:
+      - email
+      Schema:
+      - AttributeDataType: String
+        Name: email
+        Required: false
+  GoEchoCognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId:
+        Ref: GoEchoCognitoUserPool
+      ClientName: GoEchoCognitoUserPoolClientName
+      GenerateSecret: false
+      ExplicitAuthFlows:
+      - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      - ALLOW_USER_PASSWORD_AUTH
+      - ALLOW_REFRESH_TOKEN_AUTH
+  GoEchoApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors: '''*'''
+      Auth:
+        DefaultAuthorizer: GoEchoCognitoAuthorizer
+        Authorizers:
+          GoEchoCognitoAuthorizer:
+            UserPoolArn:
+              Fn::GetAtt:
+              - GoEchoCognitoUserPool
+              - Arn
   GoEchoFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -22,6 +59,8 @@ Resources:
         CatchAll:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: GoEchoApi
             Path: /{proxy+}
             Method: ANY
       Environment:
@@ -33,7 +72,7 @@ Outputs:
   GoEchoAPI:
     Description: API Gateway endpoint URL for Prod environment for First Function
     Value:
-      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
+      Fn::Sub: https://${GoEchoApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
   GoEchoFunction:
     Description: First Lambda Function ARN
     Value:
